@@ -3,24 +3,32 @@ import java.io.FileReader;
 
 public class Data {
 	private static final String filePath = "C:\\Users\\rbenn\\JavaWorkspace\\MortalityProject\\src\\";
+
+	// These 3 varaibles are accessed in the GUI class
 	public static final String[] files = { "NC2011.tsv", "NC2012.tsv", "NC2013.tsv", "NC2014.tsv", "NC2015.tsv",
 			"NC2016.tsv", "NC2017.tsv", "NC2018.tsv" };
 	public Object[][] data = new Object[200][19];
 	public static Object[][] totalData = new Object[200][19];
 
+	// Since the process for building tables was so verbose, I broke it up into
+	// separate methods, instead of housing all that in the constructor
 	public Data(String fileName) throws Exception {
-		BufferedReader readData = new BufferedReader(new FileReader(filePath + fileName));
-		buildTable(readData);
-		// print();
+		if (totalData[0][0] == null) {
+			totalData = emptyTable();
+		}
+		buildTable(fileName);
 	}
 
-	private void buildTable(BufferedReader file) throws Exception {
+	// Calls emptyTable to setup the 2D array, then fills all the appropriate
+	// indices with values from the passed file
+	private void buildTable(String fileName) throws Exception {
+		BufferedReader readData = new BufferedReader(new FileReader(filePath + fileName));
 		data = emptyTable();
 		String line = "";
 		String[] lineEntries;
-		boolean notFirst = false;
+		boolean notFirst = false; // I use this to skip the first line
 		int row = 0;
-		while ((line = file.readLine()) != null) {
+		while ((line = readData.readLine()) != null) {
 			if (notFirst) {
 				lineEntries = line.split("\t");
 				row = addLine(lineEntries, row);
@@ -28,12 +36,14 @@ public class Data {
 				notFirst = true;
 			}
 		}
-		if (totalData[0][0] == null) {
-			totalData = emptyTable();
-		}
+		readData.close();
 		addToTotal();
 	}
 
+	// This just creates a table full of zeros, to account for all the data the
+	// files skipped, like male deaths during pregnancy/childbirth
+	// I specifically wanted to to this, so all the tables would be the same size
+	// and easily manageable
 	private Object[][] emptyTable() {
 		Object[][] emptyTable = new Object[200][19];
 		String[] raceAndSex = { "TOTAL", "W M", "W F", "W U", "B M", "B F", "B U", "O M", "O F", "O U" };
@@ -53,6 +63,8 @@ public class Data {
 				"XIX. External causes of morbidity" };
 		int causesInc = 0;
 		for (int row = 0; row < emptyTable.length; row++) {
+			// Since both of these have repeated values throughout the table, I use if
+			// statements to check and reset them in necessary
 			if (raceAndSexInc >= raceAndSex.length) {
 				raceAndSexInc = 0;
 			}
@@ -61,7 +73,7 @@ public class Data {
 			}
 			for (int col = 0; col < emptyTable[col].length; col++) {
 				if (col > 1) {
-					emptyTable[row][col] = 0;
+					emptyTable[row][col] = 0.0;
 				} else if (col == 1) {
 					emptyTable[row][col] = raceAndSex[raceAndSexInc];
 					raceAndSexInc++;
@@ -73,39 +85,37 @@ public class Data {
 				causesInc++;
 			}
 		}
-
 		return emptyTable;
 	}
 
+	// Made this its own method for readability, since it got a little verbose
 	private int addLine(String[] line, int row) {
+		// Checking to see if the cause and race/sex indices match the line read in from
+		// the file
 		if (line[0].equals(data[row][0]) & line[1].equals(data[row][1])) {
 			for (int col = 2; col < line.length; col++) {
-				data[row][col] = Integer.parseInt(line[col]);
+				// Parse the values to a Double, so I can do normalization on them in the GUI
+				// class and not have values truncated
+				data[row][col] = Double.parseDouble(line[col]);
 			}
 			row++;
 		} else {
+			// Added this else statement, because some files were missing lines, as
+			// mentioned in the comment for emptyTable
+			// This just makes the method recursive, continuing to the next row, until it
+			// finds the matching first and second indices
 			row = addLine(line, row + 1);
 		}
 		return row;
 	}
 
-	public void print() {
-		for (Object[] x : totalData) {
-			for (Object y : x) {
-				System.out.print(y + " - ");
-			}
-			System.out.println();
-		}
-	}
-
+	// Adding the values from each table to the total table
 	private void addToTotal() {
 		for (int row = 0; row < totalData.length; row++) {
 			for (int col = 2; col < totalData[row].length; col++) {
-				System.out.println(totalData[row][col].toString());
-				int t = ((Integer) totalData[row][col]).intValue();
-				int d = ((Integer) data[row][col]).intValue();
-				totalData[row][col] = Integer.sum(t, d);
-				System.out.println(totalData[row][col].toString() + " - " + data[row][col].toString());
+				Double t = ((Double) totalData[row][col]);
+				Double d = ((Double) data[row][col]);
+				totalData[row][col] = Double.sum(t, d);
 			}
 		}
 	}
